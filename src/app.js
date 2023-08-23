@@ -5,11 +5,45 @@ const timeout = require('connect-timeout')
 const app = express()
 const port = process.env.PORT || 3000
 
+const traverse = (buffer) => {
+  let data = ''
+  for (let i = 0; i < buffer.length; i++) {
+    const bufferElement = buffer[i]
+    if (bufferElement === '"') {
+      if (['{', ',', ':', '\\'].includes(buffer[i - 1]) || ['}', ',', ':'].includes(buffer[i + 1])) {
+        data += bufferElement
+      } else {
+        data += '\\'
+        data += bufferElement
+      }
+    } else {
+      data += bufferElement
+    }
+  }
+  return data
+}
+
+const fixBodyParser = (error, req, res, next) => {
+  if (error instanceof SyntaxError) {
+    console.log(error.body)
+
+    // try {
+    //   req.body = JSON.parse(traverse(error.body))
+    //   return next()
+    // } catch (_) {
+    //   return next(error)
+    // }
+  }
+
+  return next(error)
+}
+
 app.set('views', process.cwd() + '/public/views')
 app.set('view engine', 'ejs')
 
 app.use(require('morgan')('dev'))
 app.use(bodyParser.json())
+app.use(fixBodyParser)
 
 const homepage = (req, res, next) =>
   res.render('homepage.html.ejs', { headers: req.headers, query: req.query })
@@ -26,7 +60,7 @@ app.patch('/config/:centre', timeout('5s'), (req, res) => {
     database.set(req.params.centre, { config: req.body, items: [] })
   }
 
-  return res.status(204).end()
+  return res.status(200).send('accepted')
 })
 
 const missingCentre = (req, res, next) => {
@@ -49,7 +83,7 @@ app.post('/items/:centre', missingCentre, (req, res) => {
   return res.status(201).json({ id: item_id, item_id })
 })
 
-app.put('/items/:centre/:item', missingCentre, (req, res) => {
+app.put('/items/:centre/:item', fixBodyParser, missingCentre, (req, res) => {
   const { centre, item } = req.params
 
   const idx = database.get(centre).items.findIndex((el) => el.item_id === item)
