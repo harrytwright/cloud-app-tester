@@ -27,12 +27,12 @@ const fixBodyParser = (error, req, res, next) => {
   if (error instanceof SyntaxError) {
     console.log(error.body)
 
-    // try {
-    //   req.body = JSON.parse(traverse(error.body))
-    //   return next()
-    // } catch (_) {
-    //   return next(error)
-    // }
+    try {
+      req.body = JSON.parse(traverse(error.body))
+      return next()
+    } catch (_) {
+      return next(error)
+    }
   }
 
   return next(error)
@@ -78,8 +78,13 @@ app.get('/items/:centre', missingCentre, (req, res) => {
 app.post('/items/:centre', missingCentre, (req, res) => {
   const { centre } = req.params
   const { item_id } = req.body
+  
+  const idx = database.get(centre).items.findIndex((el) => el.item_id === item_id)
+  if (idx === -1)
+	  database.get(centre).items.push(req.body)
+  else
+	  database.get(centre).items[idx] = req.body
 
-  database.get(centre).items.push(req.body)
   return res.status(201).json({ id: item_id, item_id })
 })
 
