@@ -1,17 +1,47 @@
+require('dotenv').config()
+
+const fs = require('fs')
+const path = require('path')
+
 const express = require('express')
-const { createClient } = require('redis')
+const { createClient, defineScript } = require('redis')
 const bodyParser = require('body-parser')
 const timeout = require('connect-timeout')
 const log = require('@harrytwright/logger')
+const {el} = require("@faker-js/faker");
 
 const app = express()
 const port = process.env.PORT || 3000
 
-const client = createClient();
+// Add a custom script, this just helps move the sales being processed away from the queue
+const customScriptPath = path.join(__dirname, '../lua/process-sales.lua')
 
-client.on('error', err =>
+const script = fs.readFileSync(customScriptPath).toString('utf8')
+
+const client = createClient({
+  url: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
+  scripts: {
+    LFULLMOVE: defineScript({
+      NUMBER_OF_KEYS: 1,
+      SCRIPT: script,
+      transformArguments(...args) {
+        return args
+      },
+      transformReply(reply) {
+        return reply;
+      }
+    })
+  }
+});
+
+client.on('error', err => {
   log.error('redis', err, 'Redis Client Error')
-);
+
+  if (err.code === 'ECONNREFUSED') {
+    log.warn('init', 'Closing due to error')
+    process.exit(1)
+  }
+});
 
 const traverse = (buffer) => {
   let data = ''
@@ -125,17 +155,44 @@ app.get('/:centre', missingCentre, async (req, res) => {
   return res.status(200).json(JSON.parse(await client.get(centre)))
 })
 
-app.get('/:centre/status', missingCentre, (req, res) => {
-  const body = {
-    center: {
-      support_items: 'Y',
-      support_screens: 'Y',
-      poll_rate: 10
-    },
-    sales: []
-  }
+const center = {
+  support_items: 'Y',
+  support_screens: 'Y',
+  poll_rate: 10
+}
+
+app.get('/:centre/status', missingCentre, async (req, res) => {
+  const { centre } = req.params
+
+  const sales = (await client.LFULLMOVE(`${centre}:sales:queue`) || []).map(el => JSON.parse(el))
+
+  const body = { sales, center }
+
+  // Set these as we don't want any caching
+  res.header("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.header("Pragma", "no-cache");
+  res.header("Expires", 0);
 
   return res.status(200).json(body)
+})
+
+app.patch('/sales/:centre/:sale', missingCentre, async (req, res) => {
+  const { centre, sale } = req.params
+  const { sale_id, accepted, order_ready } = req.body
+
+  // TODO: See what happens above and uncomment
+  // const args = [`${centre}:sales:queue:processing`, sale]
+  //
+  // // Technically `isDeletedInt` is not correct, but it's either 0 as not deleted and 1 as deleted
+  // const [element, isDeletedInt] = await client.multi().hGet(...args).hDel(...args).exec()
+  //
+  // if (!element) {
+  //   return res.status(404).json({ error: `Unable to find order ${sale}` })
+  // } else if (isDeletedInt === 0) {
+  //   return res.status(404).json({ error: `Failed to delete order ${sale}` })
+  // }
+
+  return res.status(404).json({ error: 'Failed to do anything' })
 })
 
 client.connect().then(() => {
