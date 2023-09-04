@@ -1,6 +1,6 @@
 const { faker } = require('@faker-js/faker');
 
-let id = 3
+let id = 10
 
 const createSale = (id) => () => ({
   ID: id++,
@@ -13,7 +13,11 @@ const createSale = (id) => () => ({
   payments: [
     { paid: 800, timestamp: (new Date()).toISOString(), payment_ref: faker.string.numeric(16) }
   ],
-  items: [{ ID: 102, quantity: 1, price: 800 }, { ID: 104, quantity: 1, price: 0, modifier: 'true' }],
+  items: [
+    { ID: 102, quantity: 1, price: 800 },
+    { ID: 104, quantity: 1, price: 0, modifier: 'true' },
+    { name: 'LaneLink', quantity: 0, price: 800 }
+  ],
   notes: 'Could I get some chili flakes if you have please'
 })
 

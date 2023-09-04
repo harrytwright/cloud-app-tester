@@ -178,7 +178,15 @@ app.get('/:centre/status', missingCentre, async (req, res) => {
 
 app.patch('/sales/:centre/:sale', missingCentre, async (req, res) => {
   const { centre, sale } = req.params
-  const { sale_id, accepted, order_ready } = req.body
+  // const { sale_id, accepted, order_ready } = req.body
+
+  console.log(req.body)
+
+  await client.zAdd(
+    `${centre}:sales:queue:processing:${sale}`,
+    new Date().getTime(),
+    JSON.stringify(req.body)
+  )
 
   // TODO: See what happens above and uncomment
   // const args = [`${centre}:sales:queue:processing`, sale]
@@ -192,7 +200,7 @@ app.patch('/sales/:centre/:sale', missingCentre, async (req, res) => {
   //   return res.status(404).json({ error: `Failed to delete order ${sale}` })
   // }
 
-  return res.status(404).json({ error: 'Failed to do anything' })
+  return res.status(200).json({ status: 'Patched' })
 })
 
 client.connect().then(() => {
