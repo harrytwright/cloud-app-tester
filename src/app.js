@@ -176,17 +176,18 @@ app.get('/:centre/status', missingCentre, async (req, res) => {
   return res.status(200).json(body)
 })
 
-app.patch('/sales/:centre/:sale', missingCentre, async (req, res) => {
+app.patch('/sales/:centre/:sale', missingCentre, async (req, res, next) => {
   const { centre, sale } = req.params
   // const { sale_id, accepted, order_ready } = req.body
 
-  console.log(req.body)
-
-  await client.zAdd(
-    `${centre}:sales:queue:processing:${sale}`,
-    new Date().getTime(),
-    JSON.stringify(req.body)
-  )
+  try {
+	  await client.zAdd(
+		`${centre}:sales:queue:processing:${sale}`,
+		[{ score: new Date().getTime(), value: JSON.stringify(req.body)}]
+	)
+  } catch (err) {
+	  return next(err)
+  }
 
   // TODO: See what happens above and uncomment
   // const args = [`${centre}:sales:queue:processing`, sale]
