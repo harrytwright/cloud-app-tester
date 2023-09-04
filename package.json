@@ -22,6 +22,7 @@
     "redis": "^4.6.8"
   },
   "devDependencies": {
-    "@faker-js/faker": "^8.0.2"
+    "@faker-js/faker": "^8.0.2",
+    "node-firebird": "^1.1.5"
   }
 }
