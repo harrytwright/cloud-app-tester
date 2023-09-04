@@ -8,7 +8,6 @@ const { createClient, defineScript } = require('redis')
 const bodyParser = require('body-parser')
 const timeout = require('connect-timeout')
 const log = require('@harrytwright/logger')
-const {el} = require("@faker-js/faker");
 
 const app = express()
 const port = process.env.PORT || 3000
@@ -20,6 +19,7 @@ const script = fs.readFileSync(customScriptPath).toString('utf8')
 
 const client = createClient({
   url: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
+  pingInterval: 1 * 60 * 1000,
   scripts: {
     LFULLMOVE: defineScript({
       NUMBER_OF_KEYS: 1,
@@ -161,7 +161,7 @@ const center = {
   poll_rate: 10
 }
 
-app.get('/:centre/status', missingCentre, async (req, res) => {
+app.get('/:centre/status', timeout('5s'), missingCentre, async (req, res) => {
   const { centre } = req.params
 
   const sales = (await client.LFULLMOVE(`${centre}:sales:queue`) || []).map(el => JSON.parse(el))
@@ -176,7 +176,7 @@ app.get('/:centre/status', missingCentre, async (req, res) => {
   return res.status(200).json(body)
 })
 
-app.patch('/sales/:centre/:sale', missingCentre, async (req, res, next) => {
+app.patch('/sales/:centre/:sale', timeout('5s'), missingCentre, async (req, res, next) => {
   const { centre, sale } = req.params
   // const { sale_id, accepted, order_ready } = req.body
 
