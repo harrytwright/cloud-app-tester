@@ -161,6 +161,55 @@ const center = {
   poll_rate: 10
 }
 
+const getRandom = () => Math.floor(Math.random() * 100)
+
+app.post('/customers/:centre', missingCentre, async (req, res) => {
+  const { centre } = req.params
+  const { cust_id } = req.body
+  
+  const ID = getRandom()
+  
+  await client.set(`${centre}:customers:${cust_id}`, JSON.stringify({ ID, ...req.body }))
+  
+  return res.status(200).json({ id: ID, cust_id })
+})
+
+app.patch('/customers/:centre/:customer', missingCentre, async (req, res) => {
+  const { centre, customer } = req.params
+  const { cust_id } = req.body
+  
+  const value = JSON.parse(await client.get(`${centre}:customers:${cust_id}`))
+   
+  await client.set(`${centre}:customers:${cust_id}`, JSON.stringify({ ID: value.ID, ...req.body }))
+  await client.zAdd(`${centre}:customers:${cust_id}:history`, [{ score: new Date().getTime(), value: JSON.stringify(value)}])
+  
+  return res.status(200).json({ id: value.id, cust_id })
+})
+
+app.post('/bookings/:centre', missingCentre, async (req, res) => {
+  const { centre } = req.params
+  const { book_id } = req.body
+  
+  const ID = getRandom()
+  
+  await client.set(`${centre}:bookings:${book_id}`, JSON.stringify({ id: ID, ...req.body }))
+  
+  return res.status(200).json({ id: ID, book_id })
+})
+
+app.patch('/bookings/:centre/:booking', missingCentre, async (req, res) => {
+  const { centre, booking } = req.params
+  const { book_id } = req.body
+  
+  const value = JSON.parse(await client.get(`${centre}:bookings:${book_id}`))
+   
+  await client.set(`${centre}:bookings:${book_id}`, JSON.stringify({ id: value.id, ...req.body }))
+  await client.zAdd(`${centre}:bookings:${book_id}:history`, [{ score: new Date().getTime(), value: JSON.stringify(value)}])
+  
+  return res.status(200).json({ id: value.id, book_id })
+})
+
+
 app.get('/:centre/status', timeout('5s'), missingCentre, async (req, res) => {
   const { centre } = req.params
 
